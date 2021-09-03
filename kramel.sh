@@ -207,8 +207,8 @@ exports() {
 		PATH=$GCC64_DIR/bin/:$GCC32_DIR/bin/:/usr/bin:$PATH
 	fi
 
-	BOT_MSG_URL="https://api.telegram.org/bot$TOKENS/sendMessage"
-	BOT_BUILD_URL="https://api.telegram.org/bot$TOKENS/sendDocument"
+	BOT_MSG_URL="https://api.telegram.org/bot$bot/sendMessage"
+	BOT_BUILD_URL="https://api.telegram.org/bot$bot/sendDocument"
 	PROCS=$(nproc --all)
 
 	export KBUILD_BUILD_USER ARCH SUBARCH PATH \
