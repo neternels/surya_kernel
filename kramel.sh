@@ -47,11 +47,11 @@ KERNEL_DIR="$(pwd)"
 BASEDIR="$(basename "$KERNEL_DIR")"
 
 # The name of the Kernel, to name the ZIP
-ZIPNAME="Surya-StormBreaker-Alpha"
+ZIPNAME="NetErnels"
 
 # Build Author
 # Take care, it should be a universal and most probably, case-sensitive
-AUTHOR="forenche"
+AUTHOR="G913"
 
 # Architecture
 ARCH=arm64
@@ -64,7 +64,10 @@ DEVICE="Surya"
 
 # The defconfig which should be used. Get it from config.gz from
 # your device or check source
-DEFCONFIG=surya-perf_defconfig
+DEFCONFIG=nethunter_defconfig
+
+# Build modules. 0 = NO | 1 = YES
+MODULES=1
 
 # Specify compiler. 
 # 'clang' or 'gcc'
@@ -78,7 +81,7 @@ PTTG=1
 	if [ $PTTG = 1 ]
 	then
 		# Set Telegram Chat ID
-		CHATID=-1001458890694
+		CHATID="-1001301508914"
 	fi
 
 # Generate a full DEFCONFIG prior building. 1 is YES | 0 is NO(default)
@@ -93,7 +96,7 @@ SHIP_DTBO=1
 
 # Sign the zipfile
 # 1 is YES | 0 is NO
-SIGN=0
+SIGN=1
 	if [ $SIGN = 1 ]
 	then
 		#Check for java
@@ -178,9 +181,14 @@ DATE=$(TZ=Asia/Kolkata date +"%Y%m%d-%s")
 	fi
 
 	msg "|| Cloning Anykernel ||"
-	git clone --depth 1 --no-single-branch https://github.com/stormbreaker-project/AnyKernel3.git -b surya
+	git clone --depth 1 --no-single-branch https://github.com/NetErnels/AnyKernel3.git -b surya
 	msg "|| Cloning libufdt ||"
 	git clone --depth=1 https://android.googlesource.com/platform/system/libufdt libufdt
+	if [ $MODULES = "1" ]
+	then
+	    msg "|| Cloning neternels-modules ||"
+	    git clone --depth 1 https://github.com/neternels/neternels-modules.git Mod
+	fi
 }
 
 ##------------------------------------------------------##
@@ -199,8 +207,8 @@ exports() {
 		PATH=$GCC64_DIR/bin/:$GCC32_DIR/bin/:/usr/bin:$PATH
 	fi
 
-	BOT_MSG_URL="https://api.telegram.org/bot$TOKEN/sendMessage"
-	BOT_BUILD_URL="https://api.telegram.org/bot$TOKEN/sendDocument"
+	BOT_MSG_URL="https://api.telegram.org/bot$TOKENS/sendMessage"
+	BOT_BUILD_URL="https://api.telegram.org/bot$TOKENS/sendDocument"
 	PROCS=$(nproc --all)
 
 	export KBUILD_BUILD_USER ARCH SUBARCH PATH \
@@ -287,6 +295,16 @@ build_kernel() {
 	msg "|| Started Compilation ||"
 	make -j"$PROCS" O=out \
 		"${MAKE[@]}" 2>&1 | tee error.log
+	if [ $MODULES = "1" ]
+	then
+	    make -j"$PROCS" O=out \
+		 "${MAKE[@]}" modules_prepare
+	    make -j"$PROCS" O=out \
+		 "${MAKE[@]}" modules INSTALL_MOD_PATH="$KERNEL_DIR"/out/modules
+	    make -j"$PROCS" O=out \
+		 "${MAKE[@]}" modules_install INSTALL_MOD_PATH="$KERNEL_DIR"/out/modules
+	    find "$KERNEL_DIR"/out/modules -type f -iname '*.ko' -exec cp {} Mod/system/lib/modules/ \;
+	fi
 
 		BUILD_END=$(date +"%s")
 		DIFF=$((BUILD_END - BUILD_START))
@@ -318,7 +336,15 @@ gen_zip() {
 		mv "$KERNEL_DIR"/out/arch/arm64/boot/dts/qcom/sdmmagpie.dtb AnyKernel3/dtb
 	fi
 	cdir AnyKernel3
-	make normal
+	zip -r $ZIPNAME-$DEVICE-"$DATE" . -x ".git*" -x "README.md" -x "*.zip"
+	if [ $MODULES = "1" ]
+	then
+	    cdir ../Mod
+	    rm -rf system/lib/modules/placeholder
+	    zip -r $ZIPNAME-$DEVICE-modules-"$DATE" . -x ".git*" -x "LICENSE.md" -x "*.zip"
+	    MOD_NAME="$ZIPNAME-$DEVICE-modules-$DATE"
+	    cdir ../AnyKernel3
+	fi
 
 	## Prepare a final zip variable
 	ZIP_FINAL=$(echo *.zip)
@@ -339,6 +365,11 @@ gen_zip() {
 	if [ "$PTTG" = 1 ]
  	then
 		tg_post_build "$ZIP_FINAL" "Build took : $((DIFF / 60)) minute(s) and $((DIFF % 60)) second(s)"
+	    if [ $MODULES = "1" ]
+	    then
+		cdir ../Mod
+		tg_post_build "$MOD_NAME.zip" "Flash this in magisk for loadable kernel modules"
+	    fi
 	fi
 	cd ..
 }
