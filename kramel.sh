@@ -13,7 +13,7 @@
 # Some Placeholders: [!] [*] [✓] [✗]
 
 # Default defconfig to use for builds.
-export CONFIG=neternels_defconfig
+export CONFIG=vendor/neternels_defconfig
 
 # Default directory where kernel is located in.
 KDIR=$(pwd)
